@@ -1,0 +1,2387 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#020617">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Морський Бій">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <title>Морський Бій • Онлайн</title>
+
+
+  <style>
+    :root {
+      --bg-deep: #020617;
+      --bg-card: rgba(8, 20, 42, 0.72);
+      --bg-card-border: rgba(0, 240, 255, 0.22);
+      --accent: #00f0ff;
+      --accent-glow: rgba(0, 240, 255, 0.45);
+      --accent-dim: rgba(0, 240, 255, 0.15);
+      --neon-blue: #38bdf8;
+      --hit: #ff2d55;
+      --hit-glow: rgba(255, 45, 85, 0.55);
+      --miss: #0284c7;
+      --miss-glow: rgba(2, 132, 199, 0.4);
+      --ship-hull: linear-gradient(135deg, #0e7490, #0369a1);
+      --ship-border: #38bdf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+      --cell-size: min(8.6vw, 42px);
+      --radius: 18px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Cyber background with animated radar grid and glow */
+    .bg-canvas-container {
+      position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+      background: radial-gradient(circle at 50% 20%, #0a1b38 0%, #030a1b 50%, #020617 100%);
+    }
+    #bg-canvas, #particles-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+    }
+
+    .screen {
+      display: none; width: 100%; max-width: 1080px; padding: 16px 14px 28px;
+      flex-direction: column; align-items: center; gap: 16px;
+      animation: screenEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .screen.active { display: flex; }
+
+    @keyframes screenEnter {
+      from { opacity: 0; transform: translateY(14px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes screenShake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-6px, 4px); }
+      40% { transform: translate(5px, -5px); }
+      60% { transform: translate(-4px, 3px); }
+      80% { transform: translate(3px, -2px); }
+    }
+    .shake { animation: screenShake 0.45s ease-in-out; }
+
+    /* Modern Header */
+    header { text-align: center; padding: 4px 0; position: relative; }
+    .logo-container {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .radar-icon {
+      width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent);
+      position: relative; box-shadow: 0 0 15px var(--accent-glow);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .radar-icon::before {
+      content: ''; position: absolute; inset: 4px; border-radius: 50%;
+      border: 1px dashed rgba(0, 240, 255, 0.6);
+      animation: rotate 6s linear infinite;
+    }
+    .radar-icon::after {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 8px #fff;
+    }
+    @keyframes rotate { to { transform: rotate(360deg); } }
+
+    .logo {
+      font-size: clamp(1.6rem, 5vw, 2.3rem); font-weight: 900;
+      background: linear-gradient(135deg, #ffffff 10%, #00f0ff 65%, #38bdf8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px; text-shadow: 0 0 30px rgba(0,240,255,0.4);
+    }
+    .subtitle {
+      color: var(--text-dim); font-size: 0.85rem; letter-spacing: 1px;
+      text-transform: uppercase; margin-top: 2px;
+    }
+
+    /* Glassmorphism card */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border: 1px solid var(--bg-card-border);
+      border-radius: var(--radius); padding: 22px 20px;
+      width: 100%; max-width: 440px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12);
+      position: relative; overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: cardSweep 4s ease-in-out infinite;
+    }
+    @keyframes cardSweep { 0% { left: -100%; } 50%, 100% { left: 100%; } }
+
+    .card h2 {
+      font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 14px;
+      text-align: center; letter-spacing: 0.3px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+
+    /* Interactive Buttons */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 22px; border: none; border-radius: 13px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      width: 100%; max-width: 290px;
+      user-select: none;
+    }
+    .btn:active:not(:disabled) { transform: scale(0.96) translateY(2px); }
+    .btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.3) 50%, transparent 80%);
+      transform: translateX(-100%); transition: transform 0.6s ease;
+    }
+    .btn:hover:not(:disabled)::after { transform: translateX(100%); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
+      color: #fff; box-shadow: 0 4px 20px rgba(0, 180, 216, 0.45);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px); box-shadow: 0 8px 26px rgba(0, 240, 255, 0.6);
+    }
+    .btn-secondary {
+      background: rgba(15, 30, 56, 0.7); color: var(--text);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      backdrop-filter: blur(8px);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(0, 240, 255, 0.15); border-color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+      border: 1px solid rgba(52, 211, 153, 0.4);
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      color: #fff; box-shadow: 0 4px 18px rgba(239, 68, 68, 0.4);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    .btn-group { display: flex; flex-direction: column; gap: 11px; width: 100%; align-items: center; }
+    .btn-sm { padding: 9px 14px; font-size: 0.85rem; width: auto; max-width: none; }
+
+    .input-group { width: 100%; margin-bottom: 12px; }
+    .input-group label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 6px; font-weight: 600; }
+    input[type="text"] {
+      width: 100%; padding: 13px 16px; background: rgba(3, 10, 24, 0.85);
+      border: 1px solid var(--bg-card-border); border-radius: 12px; color: #fff;
+      font-size: 1rem; outline: none; transition: all 0.25s ease;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow);
+      background: rgba(4, 15, 36, 0.95);
+    }
+
+    .room-code {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 1.05rem;
+      background: rgba(0, 240, 255, 0.08); border: 1.5px dashed var(--accent);
+      padding: 12px 14px; border-radius: 12px; word-break: break-all; text-align: center;
+      margin: 8px 0; color: var(--accent); user-select: all; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .room-code:hover { background: rgba(0, 240, 255, 0.16); box-shadow: 0 0 16px var(--accent-glow); }
+
+    .status { text-align: center; color: var(--text-dim); font-size: 0.9rem; min-height: 22px; font-weight: 600; }
+    .status.waiting { color: var(--warning); animation: pulseStatus 1.5s infinite; }
+    .status.connected { color: var(--success); }
+    @keyframes pulseStatus { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+    /* Grids & Coordinate labels */
+    .boards-container {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 24px; width: 100%;
+    }
+    .board-wrapper {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .board-title {
+      font-size: 0.92rem; font-weight: 700; color: #fff;
+      display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px;
+    }
+    .board-title .badge {
+      background: linear-gradient(135deg, #00f0ff, #0284c7); color: #020617;
+      font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; font-weight: 800;
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .grid-with-coords {
+      display: flex; flex-direction: column;
+    }
+    .coord-row {
+      display: flex; margin-left: 20px;
+    }
+    .coord-col-header {
+      width: var(--cell-size); text-align: center; font-size: 0.72rem;
+      color: rgba(0, 240, 255, 0.7); font-weight: 700; font-family: monospace;
+    }
+    .grid-body {
+      display: flex;
+    }
+    .coord-num-col {
+      display: flex; flex-direction: column; width: 20px; justify-content: space-around;
+      font-size: 0.72rem; color: rgba(0, 240, 255, 0.7); font-weight: 700; font-family: monospace;
+      text-align: center;
+    }
+
+    .grid {
+      display: grid; grid-template-columns: repeat(10, var(--cell-size));
+      grid-template-rows: repeat(10, var(--cell-size)); gap: 3px;
+      background: rgba(2, 12, 30, 0.75); padding: 5px; border-radius: 12px;
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 25px rgba(0, 150, 255, 0.2), inset 0 0 20px rgba(0, 30, 70, 0.6);
+      position: relative;
+    }
+
+    .cell {
+      width: var(--cell-size); height: var(--cell-size);
+      background: rgba(10, 25, 52, 0.7);
+      border-radius: 5px; cursor: pointer;
+      position: relative; display: flex; align-items: center; justify-content: center;
+      font-size: calc(var(--cell-size) * 0.44);
+      transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease;
+      touch-action: manipulation;
+    }
+    .cell:active:not(.disabled) { transform: scale(0.92); }
+    @media (hover: hover) and (pointer: fine) {
+      .cell:hover:not(.disabled):not(.hit):not(.miss):not(.ship) {
+        background: rgba(0, 240, 255, 0.28);
+        box-shadow: 0 0 12px var(--accent-glow);
+        transform: scale(1.08); z-index: 5;
+      }
+    }
+
+    .cell.selected-preview {
+      background: rgba(0, 240, 255, 0.55) !important;
+      border: 2px solid var(--accent) !important;
+      box-shadow: 0 0 16px var(--accent-glow);
+      animation: pulseCell 1.2s infinite;
+    }
+    @keyframes pulseCell { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .cell.ship {
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      border: 1px solid rgba(56, 189, 248, 0.6);
+      box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+    .cell.ship.preview {
+      background: rgba(0, 240, 255, 0.45);
+      border: 1px solid var(--accent);
+    }
+    .cell.ship.preview.invalid {
+      background: rgba(239, 68, 68, 0.45) !important;
+      border: 1px solid #ef4444 !important;
+    }
+    .cell.hit {
+      background: radial-gradient(circle, #ff2d55 35%, #881337 100%);
+      box-shadow: 0 0 18px var(--hit-glow);
+      border: 1px solid rgba(255, 45, 85, 0.8);
+      animation: hitPop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      cursor: default;
+    }
+    .cell.hit::after { content: '💥'; animation: explode 0.35s ease; }
+    .cell.miss {
+      background: rgba(2, 132, 199, 0.35); cursor: default;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      animation: missSplash 0.3s ease;
+    }
+    .cell.miss::after {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: #38bdf8; box-shadow: 0 0 8px #38bdf8;
+    }
+    .cell.sunk {
+      background: linear-gradient(135deg, #881337, #4c0519) !important;
+      border: 1px solid #ff2d55 !important;
+      box-shadow: 0 0 20px rgba(255, 45, 85, 0.6) !important;
+    }
+    .cell.disabled { cursor: default; pointer-events: none; }
+
+    @keyframes hitPop { 0% { transform: scale(0.6); } 70% { transform: scale(1.22); } 100% { transform: scale(1); } }
+    @keyframes missSplash { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes explode { 0% { transform: scale(0.2); opacity: 0; } 60% { transform: scale(1.3); } 100% { transform: scale(1); opacity: 1; } }
+
+    /* Placement panel */
+    .placement-panel {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; max-width: 520px;
+    }
+    .ship-btn {
+      padding: 10px 14px; background: rgba(10, 24, 52, 0.8);
+      border: 1px solid var(--bg-card-border); border-radius: 12px;
+      color: var(--text); font-size: 0.84rem; font-weight: 600; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 90px;
+      transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .ship-btn:hover:not(.placed) { transform: translateY(-2px); border-color: var(--accent); }
+    .ship-btn.active {
+      border-color: var(--accent); background: rgba(0, 240, 255, 0.18);
+      box-shadow: 0 0 16px var(--accent-glow); transform: translateY(-2px);
+    }
+    .ship-btn.placed { opacity: 0.35; pointer-events: none; border-color: transparent; }
+    .ship-btn .size-dots { display: flex; gap: 3px; }
+    .ship-btn .dot { width: 8px; height: 8px; border-radius: 3px; background: var(--accent); box-shadow: 0 0 6px var(--accent-glow); }
+
+    .orient-indicator {
+      display: flex; align-items: center; gap: 10px; background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 12px; padding: 8px 16px; font-size: 0.9rem;
+    }
+    .orient-indicator strong { color: var(--accent); min-width: 80px; text-align: center; }
+
+    /* HUD Bar */
+    .hud {
+      display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+      gap: 10px; width: 100%; max-width: 920px;
+    }
+    .hud-item {
+      background: var(--bg-card); border: 1px solid var(--bg-card-border);
+      border-radius: 12px; padding: 9px 16px; font-size: 0.9rem; font-weight: 700;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .hud-item.turn {
+      border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow);
+      background: rgba(0, 240, 255, 0.12); color: #fff;
+    }
+    .hud-item.turn.enemy {
+      border-color: var(--hit); box-shadow: 0 0 18px var(--hit-glow);
+      background: rgba(255, 45, 85, 0.12); color: #fff;
+    }
+
+    .message {
+      text-align: center; padding: 10px 20px; border-radius: 12px; font-weight: 600;
+      min-height: 42px; display: flex; align-items: center; justify-content: center;
+      max-width: 520px; width: 100%; transition: all 0.25s ease; font-size: 0.95rem;
+    }
+    .message.info { background: rgba(0, 240, 255, 0.12); color: var(--accent); border: 1px solid rgba(0, 240, 255, 0.3); }
+    .message.success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .message.danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .message.warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+    .icon-btn {
+      width: 42px; height: 42px; border-radius: 50%;
+      border: 1px solid var(--bg-card-border); background: var(--bg-card);
+      color: #fff; font-size: 1.15rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .icon-btn:hover { border-color: var(--accent); transform: scale(1.08); box-shadow: 0 0 14px var(--accent-glow); }
+    .icon-btn:active { transform: scale(0.95); }
+    .icon-btn.off { opacity: 0.5; }
+
+    /* End Screen */
+    .end-screen { text-align: center; padding: 32px 24px; }
+    .end-screen h1 { font-size: 2.6rem; font-weight: 900; margin-bottom: 12px; }
+    .end-screen.win h1 {
+      background: linear-gradient(135deg, #10b981, #34d399, #6ee7b7);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 24px rgba(16, 185, 129, 0.5));
+    }
+    .end-screen.lose h1 {
+      background: linear-gradient(135deg, #ef4444, #f87171);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 24px rgba(239, 68, 68, 0.5));
+    }
+
+    /* Floating Toast */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(120px);
+      background: rgba(10, 25, 52, 0.95); backdrop-filter: blur(16px);
+      border: 1px solid var(--accent); border-radius: 14px;
+      padding: 12px 24px; z-index: 250; transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none; max-width: 90%; text-align: center; font-size: 0.92rem; font-weight: 600;
+      color: #fff; box-shadow: 0 10px 30px rgba(0, 240, 255, 0.35);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* CHAT & ATTACHMENTS */
+    .chat-toggle {
+      position: fixed; bottom: 24px; right: 24px; width: 60px; height: 60px; border-radius: 50%;
+      background: linear-gradient(135deg, #00f0ff, #0077b6); border: none; color: #020617;
+      font-size: 1.6rem; cursor: pointer; box-shadow: 0 6px 28px rgba(0, 240, 255, 0.55);
+      z-index: 150; display: none; align-items: center; justify-content: center;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
+    }
+    .chat-toggle:hover { transform: scale(1.1); box-shadow: 0 8px 32px rgba(0, 240, 255, 0.7); }
+    .chat-toggle:active { transform: scale(0.95); }
+    .chat-toggle .badge-chat {
+      position: absolute; top: -3px; right: -3px; background: #ef4444; color: white;
+      font-size: 0.72rem; width: 22px; height: 22px; border-radius: 50%;
+      display: none; align-items: center; justify-content: center; font-weight: 800;
+      box-shadow: 0 0 10px #ef4444;
+    }
+    .chat-toggle .badge-chat.show { display: flex; }
+
+    .chat-panel {
+      position: fixed; bottom: 92px; right: 20px; width: min(380px, calc(100vw - 36px));
+      height: min(480px, calc(100dvh - 120px)); background: rgba(5, 15, 34, 0.92);
+      backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--bg-card-border); border-radius: 20px; z-index: 140;
+      display: none; flex-direction: column; box-shadow: 0 16px 50px rgba(0,0,0,0.65);
+      overflow: hidden; animation: chatPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .chat-panel.open { display: flex; }
+    .chat-panel.desk-open { height: min(560px, calc(100dvh - 100px)); border-color: var(--accent); }
+    @keyframes chatPop {
+      from { opacity: 0; transform: scale(0.9) translateY(20px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .chat-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--bg-card-border);
+      display: flex; justify-content: space-between; align-items: center; font-weight: 700;
+      flex-shrink: 0; background: rgba(2, 6, 23, 0.4);
+    }
+    .chat-messages {
+      flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+      min-height: 80px; -webkit-overflow-scrolling: touch;
+    }
+    .chat-msg {
+      max-width: 86%; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; line-height: 1.4;
+      word-break: break-word; animation: msgFade 0.25s ease;
+    }
+    @keyframes msgFade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .chat-msg.me {
+      align-self: flex-end; background: linear-gradient(135deg, rgba(0, 180, 216, 0.3), rgba(0, 119, 182, 0.35));
+      border: 1px solid rgba(0, 240, 255, 0.3); border-bottom-right-radius: 4px;
+    }
+    .chat-msg.them {
+      align-self: flex-start; background: rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(148, 163, 184, 0.2); border-bottom-left-radius: 4px;
+    }
+    .chat-msg .meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 4px; }
+    .chat-msg.them .meta { justify-content: flex-start; }
+    .chat-msg .time { font-size: 0.72rem; opacity: 0.65; }
+    .chat-msg .ticks { font-size: 0.85rem; letter-spacing: -2px; font-weight: 700; }
+    .chat-msg .ticks.delivered { color: #94a3b8; }
+    .chat-msg .ticks.read { color: #00f0ff; }
+
+    /* 500 MB Secret Desk Panel */
+    .desk-panel {
+      display: none; flex-direction: column; gap: 8px; padding: 12px 14px;
+      border-top: 1px solid var(--accent); background: rgba(2, 18, 42, 0.95);
+      flex-shrink: 0; z-index: 2; position: relative;
+    }
+    .desk-panel.open { display: flex; animation: deskOpen 0.3s ease; }
+    @keyframes deskOpen { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .desk-badge-secret {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 800;
+      color: var(--accent); letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .desk-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .desk-row input[type="file"] {
+      font-size: 0.78rem; color: var(--text-dim); max-width: 100%; flex: 1; min-width: 0;
+    }
+    .desk-progress-container {
+      width: 100%; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px;
+      overflow: hidden; border: 1px solid rgba(0, 240, 255, 0.3); display: none;
+    }
+    .desk-progress-bar {
+      height: 100%; width: 0%; border-radius: 4px;
+      background: linear-gradient(90deg, #00f0ff, #38bdf8, #10b981);
+      box-shadow: 0 0 10px var(--accent-glow);
+      transition: width 0.15s ease;
+    }
+    .desk-progress-stats {
+      font-size: 0.78rem; color: var(--accent); min-height: 1.2em; font-family: monospace;
+      display: flex; justify-content: space-between;
+    }
+    .chat-msg.file-msg {
+      border: 1px solid rgba(0, 240, 255, 0.45);
+      background: linear-gradient(135deg, rgba(0, 60, 110, 0.4), rgba(2, 20, 50, 0.5));
+      max-width: 95%;
+    }
+    .chat-msg.file-msg a.file-dl {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      margin-top: 8px; padding: 10px 16px;
+      background: linear-gradient(135deg, #00b4d8, #0077b6);
+      border: 1px solid var(--accent); border-radius: 12px; color: #fff;
+      text-decoration: none; font-weight: 700; font-size: 0.88rem;
+      box-shadow: 0 4px 14px rgba(0, 240, 255, 0.35); transition: transform 0.15s;
+    }
+    .chat-msg.file-msg a.file-dl:active { transform: scale(0.96); }
+
+    .chat-emoji-bar {
+      display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 12px;
+      border-top: 1px solid var(--bg-card-border); max-height: 72px; overflow-y: auto; flex-shrink: 0;
+    }
+    .chat-panel.desk-open .chat-emoji-bar { display: none; }
+    .chat-emoji-bar button {
+      background: transparent; border: none; font-size: 1.3rem; cursor: pointer;
+      padding: 4px; border-radius: 8px; transition: transform 0.15s;
+    }
+    .chat-emoji-bar button:active { transform: scale(1.3); }
+
+    .chat-input-row {
+      display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--bg-card-border);
+      flex-shrink: 0; background: rgba(2, 6, 23, 0.6);
+    }
+    .chat-input-row input { flex: 1; padding: 10px 14px; font-size: 0.9rem; }
+    .chat-input-row button { width: auto; padding: 10px 16px; }
+
+    /* Scanner Modal */
+    .scanner-modal {
+      position: fixed; inset: 0; background: rgba(2, 6, 23, 0.96); z-index: 300;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; padding: 20px; backdrop-filter: blur(12px);
+    }
+    .scanner-modal.show { display: flex; animation: screenEnter 0.3s ease; }
+    #qr-reader {
+      width: min(100%, 360px); border-radius: 16px; overflow: hidden;
+      border: 2px solid var(--accent); box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    /* Pause Overlay */
+    .pause-overlay {
+      position: fixed; inset: 0; background: rgba(2, 6, 23, 0.88); backdrop-filter: blur(12px);
+      z-index: 160; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    }
+    .pause-overlay.show { display: flex; animation: screenEnter 0.25s ease; }
+
+    /* Placement Confirmation */
+    #place-confirm {
+      position: sticky; bottom: 12px; z-index: 20;
+      background: rgba(8, 20, 42, 0.96); backdrop-filter: blur(20px);
+      border: 2px solid var(--accent); border-radius: 16px;
+      padding: 14px 18px; box-shadow: 0 10px 35px var(--accent-glow);
+      max-width: 420px; width: 100%; display: none; justify-content: center; gap: 12px;
+    }
+
+    .spinner {
+      width: 24px; height: 24px; border: 3px solid rgba(0, 240, 255, 0.2);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 700px) {
+      :root { --cell-size: min(9vw, 39px); }
+      .boards-container { flex-direction: column; align-items: center; }
+      .card { padding: 18px 14px; }
+      .chat-panel {
+        left: 0; right: 0; bottom: 0; width: 100%; max-width: none;
+        height: min(58dvh, 440px); border-radius: 20px 20px 0 0;
+      }
+      .chat-panel.desk-open { height: min(72dvh, 540px); }
+      .chat-toggle { bottom: 16px; right: 16px; width: 54px; height: 54px; }
+      #place-confirm {
+        position: fixed; left: 12px; right: 12px; bottom: 16px; width: auto; max-width: none;
+      }
+      #place-confirm .btn { flex: 1; max-width: none !important; }
+    }
+
+    /* Ocean interface */
+    :root { --bg-deep:#07121c; --bg-card:rgba(14,30,42,.94); --bg-card-border:#294451; --accent:#66ead1; --accent-glow:rgba(102,234,209,.12); --text-dim:#a4b8c5; --cell-size:min(3.6vw,38px); }
+    body { background:#07121c; }
+    .bg-canvas-container { background:radial-gradient(ellipse at 15% 30%,#123847 0%,#091924 40%,#07121c 75%); }
+    #bg-canvas { opacity:.6; }
+    .screen { padding-top:30px; gap:20px; }
+    #home { max-width:1120px; min-height:100dvh; display:none; grid-template-columns:1.2fr 1fr; grid-template-rows:auto 1fr auto; column-gap:70px; padding:48px 34px 32px; align-items:center; }
+    #home.active { display:grid; }
+    #home header { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #294451; padding-bottom:24px; }
+    #home .logo { font-size:24px; letter-spacing:2px; }
+    .logo { background:none; -webkit-text-fill-color:var(--text); text-shadow:none; }
+    .subtitle { text-transform:none; letter-spacing:0; }
+    .radar-icon { box-shadow:none; width:26px; height:26px; }
+    .home-card { grid-column:2; grid-row:2; padding:32px; max-width:none; }
+    .eyebrow { font-size:11px; letter-spacing:2.5px; color:var(--accent); margin-bottom:18px; }
+    .home-card h2 { justify-content:flex-start; font-size:32px; letter-spacing:-1px; margin-bottom:10px; }
+    .card-intro { color:var(--text-dim); line-height:1.6; margin-bottom:26px; }
+    .difficulty-label { display:block; color:var(--text-dim); font-size:12px; margin-bottom:8px; }
+    select { width:100%; background:#091b28; color:var(--text); border:1px solid #36525e; padding:13px; border-radius:10px; margin-bottom:18px; font:inherit; font-size:14px; }
+    .home-card .btn { max-width:none; min-height:50px; }
+    .card { box-shadow:0 16px 50px #0003; border-color:#294451; }
+    .card::before { display:none; }
+    .btn { border-radius:10px; transition:background .2s,transform .2s; }
+    .btn-primary,.btn-success { background:#65e4c9; color:#052d29; border:1px solid #83f4da; box-shadow:none; }
+    .btn-primary:hover:not(:disabled),.btn-success:hover:not(:disabled) { background:#91f4dc; box-shadow:0 5px 20px #65e4c91a; }
+    .btn-secondary { background:#142936; border-color:#34515e; box-shadow:none; }
+    .btn-danger { box-shadow:none; }
+    .home-note { grid-column:1 / -1; justify-self:center; max-width:640px !important; border-top:1px solid #294451; padding-top:24px; }
+    .hero-art { grid-column:1; grid-row:2; position:relative; padding:28px 0; }
+    .sonar { aspect-ratio:1; width:100%; border:1px solid #66ead13b; border-radius:50%; position:relative; background:repeating-radial-gradient(circle,transparent 0,transparent 24%,#66ead11a 24.3%,transparent 24.8%),linear-gradient(90deg,transparent 49.8%,#66ead12b 50%,transparent 50.2%),linear-gradient(transparent 49.8%,#66ead12b 50%,transparent 50.2%); box-shadow:0 0 90px #66ead109; }
+    .sonar::before { content:''; position:absolute; inset:0; border-radius:50%; background:conic-gradient(from 0deg,transparent 60%,#66ead130); animation:rotate 16s linear infinite; }
+    .sonar::after { content:'ФЛОТ НА ПОЗИЦІЇ'; position:absolute; top:52%; left:0; right:0; text-align:center; letter-spacing:3px; font-size:10px; color:#9fceca; }
+    .sonar i,.sonar b,.sonar em { position:absolute; width:48px; height:10px; background:#66ead1; border-radius:50% 30% 30% 50%; box-shadow:0 0 26px #66ead16a; transform:rotate(-35deg); }
+    .sonar i { top:32%; left:35%; width:74px; height:14px; }.sonar b { top:65%; left:65%; }.sonar em { top:72%; left:26%; width:28px; }
+    .sonar span { position:absolute; top:46%; left:0; right:0; text-align:center; color:#d5fff5; font:14px monospace; letter-spacing:4px; }
+    .hero-tag { text-align:center; font:10px monospace; letter-spacing:3px; color:#658a96; margin-top:26px; }
+    .grid { gap:3px; box-shadow:none; background:#091721; border-color:#34515e; }
+    .coord-row { gap:3px; margin-left:26px; }
+    .board-wrapper { max-width:100%; }
+    .cell { background:#142c3b; border:1px solid #244352; }
+    .cell.ship { background:#2d6573; border-color:#66bea9; box-shadow:none; }
+    .hud { border:1px solid #294451; border-radius:14px; padding:12px; background:#0e202d; }
+    #btn-chat-hud[hidden] { display:none; }
+    :focus-visible { outline:2px solid #96ffe5; outline-offset:4px; }
+    .toast { max-width:calc(100vw - 32px); }
+    input { user-select:text; }
+    @media(max-width:760px) { :root { --cell-size:min(calc((100vw - 82px)/10),38px); } #home { display:none; grid-template-columns:1fr; gap:24px; padding:24px 18px; } #home header { flex-direction:column; gap:12px; } .home-card { grid-column:1; grid-row:auto; padding:24px; } .hero-art { display:none; } .home-note { grid-column:1; } #home .logo { font-size:21px; } .home-card h2 { font-size:29px; } .boards-container { flex-direction:column; align-items:center; } .hud { justify-content:center; } .screen { padding:20px 10px; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; } #bg-canvas { display:none; } }
+  </style>
+</head>
+<body>
+  <!-- Dynamic Cyber Ocean Background -->
+  <div class="bg-canvas-container">
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="particles-canvas"></canvas>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div id="home" class="screen active">
+    <header>
+      <div class="logo-container">
+        <div class="radar-icon"></div>
+        <div class="logo">МОРСЬКИЙ БІЙ</div>
+      </div>
+      <div class="subtitle">Твій флот. Твоя стратегія.</div>
+    </header>
+    <div class="hero-art" aria-hidden="true"><div class="sonar"><i></i><b></b><em></em><span>+ 04 : 17</span></div><div class="hero-tag">NAVAL TACTICS / 01</div></div>
+    <div class="card home-card">
+      <div class="eyebrow">ГОТОВИЙ ДО ВИХОДУ?</div><h2>Обери свій бій</h2>
+      <p class="card-intro">Один океан. Два флоти. Один переможець.</p>
+      <label class="difficulty-label" for="difficulty">Складність ШІ</label>
+      <select id="difficulty"><option value="easy">Кадет — випадкові постріли</option><option value="normal" selected>Капітан — пошук і добивання</option><option value="hard">Адмірал — аналіз влучань</option></select>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-bot">Почати бій із ШІ →</button>
+        <button class="btn btn-secondary" id="btn-create">🌐 Створити онлайн-гру</button>
+        <button class="btn btn-secondary" id="btn-join">🔗 Приєднатися за кодом / QR</button>
+        <button class="btn btn-secondary" id="btn-install" style="display:none">📲 Встановити додаток</button>
+      </div>
+    </div>
+    <p class="home-note" style="color:var(--text-dim);font-size:0.85rem;text-align:center;max-width:380px;line-height:1.6">
+      Розстав флот, обери ціль і випереди суперника. Влучання дає ще один хід. Кораблі можуть торкатися.
+    </p>
+  </div>
+
+  <!-- LOBBY CREATE -->
+  <div id="lobby-create" class="screen">
+    <header><div class="logo">⚓ МОРСЬКИЙ БІЙ</div></header>
+    <div class="card">
+      <h2>Кімната створена</h2>
+      <p style="text-align:center;color:var(--text-dim);margin-bottom:6px;font-size:0.9rem">Код або QR для другого гравця:</p>
+      <div class="room-code" id="room-code" title="Натисніть для копіювання">—</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin:10px 0;">
+        <img id="qr-img" alt="QR код" width="180" height="180" style="display:none;border-radius:12px;background:#fff;padding:8px;">
+        <canvas id="qr-canvas" width="180" height="180" style="display:none;border-radius:12px;background:#fff;padding:8px;"></canvas>
+        <span style="font-size:0.8rem;color:var(--text-dim)">Відскануйте камерою іншого телефону</span>
+      </div>
+      <div class="status waiting" id="create-status">Очікування підключення суперника...</div>
+      <div class="btn-group" style="margin-top:14px">
+        <button class="btn btn-secondary btn-sm" id="btn-copy">📋 Копіювати код</button>
+        <button class="btn btn-danger btn-sm" id="btn-cancel-create">Скасувати</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOBBY JOIN -->
+  <div id="lobby-join" class="screen">
+    <header><div class="logo">⚓ МОРСЬКИЙ БІЙ</div></header>
+    <div class="card">
+      <h2>Приєднання</h2>
+      <div class="input-group">
+        <label>Код кімнати суперника</label>
+        <input type="text" id="join-code" placeholder="Вставте код кімнати" autocomplete="off">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-connect">Підключитися</button>
+        <button class="btn btn-secondary" id="btn-scan-qr">📷 Сканувати QR-код</button>
+        <button class="btn btn-secondary" id="btn-back-join">Назад</button>
+      </div>
+      <div class="status" id="join-status" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <!-- QR SCANNER -->
+  <div class="scanner-modal" id="scanner-modal">
+    <h2 style="color:var(--accent)">📷 Сканування QR</h2>
+    <p style="color:var(--text-dim);font-size:0.88rem;text-align:center">Наведіть камеру на QR-код суперника</p>
+    <div id="qr-reader"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secondary btn-sm" id="btn-switch-cam" style="display:none">🔄 Інша камера</button>
+      <button class="btn btn-danger btn-sm" id="btn-close-scanner">Закрити</button>
+    </div>
+  </div>
+
+  <!-- PLACEMENT -->
+  <div id="placement" class="screen">
+    <header><div class="logo" style="font-size:1.5rem">РОЗСТАНОВКА ФЛОТУ</div></header>
+    <div class="message info" id="place-msg">Оберіть корабель, натисніть на поле та підтвердіть позицію.</div>
+
+    <div class="board-wrapper">
+      <div class="board-title">Ваша ескадра</div>
+      <div class="grid-with-coords">
+        <div class="coord-row">
+          <div class="coord-col-header">A</div><div class="coord-col-header">B</div><div class="coord-col-header">C</div><div class="coord-col-header">D</div><div class="coord-col-header">E</div><div class="coord-col-header">F</div><div class="coord-col-header">G</div><div class="coord-col-header">H</div><div class="coord-col-header">I</div><div class="coord-col-header">J</div>
+        </div>
+        <div class="grid-body">
+          <div class="coord-num-col">
+            <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+          </div>
+          <div class="grid" id="place-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="orient-indicator">
+      <span>Орієнтація:</span>
+      <strong id="orient-label">Горизонтально →</strong>
+      <button class="btn btn-secondary btn-sm" id="btn-rotate">↻ Повернути</button>
+    </div>
+
+    <div class="placement-panel" id="ship-list"></div>
+
+    <div id="place-confirm">
+      <button class="btn btn-success" id="btn-confirm-place">✓ Поставити</button>
+      <button class="btn btn-secondary" id="btn-cancel-place">✕ Скасувати</button>
+    </div>
+
+    <div class="controls" id="place-actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;width:100%;">
+      <button class="btn btn-secondary btn-sm" id="btn-random">🎲 Випадково</button>
+      <button class="btn btn-secondary btn-sm" id="btn-clear">🗑 Очистити</button>
+      <button class="btn btn-success btn-sm" id="btn-ready" disabled>Готовий до бою ✓</button>
+    </div>
+    <div class="status" id="place-status"></div><button class="btn btn-secondary btn-sm" id="btn-placement-home">← До меню</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game" class="screen">
+    <div class="hud">
+      <div class="hud-item turn" id="turn-indicator">Ваш хід 🎯</div>
+      <div class="hud-item" id="ships-left">Ваших: 5</div>
+      <div class="hud-item" id="enemy-ships">Ворожих: 5</div>
+      <button class="btn btn-secondary btn-sm" id="btn-pause">⏸ Пауза</button>
+      <button class="btn btn-danger btn-sm" id="btn-surrender">🏳 Здатися</button>
+      <button class="icon-btn" id="btn-sound" title="Звук">🔊</button>
+      <button class="icon-btn" id="btn-chat-hud" title="Чат">💬</button>
+    </div>
+    <div class="message info" id="game-msg">Бій розпочато! Оберіть координати удару на полі ворога.</div>
+
+    <div class="boards-container">
+      <div class="board-wrapper">
+        <div class="board-title">Поле суперника <span class="badge" id="enemy-badge">5</span></div>
+        <div class="grid-with-coords">
+          <div class="coord-row">
+            <div class="coord-col-header">A</div><div class="coord-col-header">B</div><div class="coord-col-header">C</div><div class="coord-col-header">D</div><div class="coord-col-header">E</div><div class="coord-col-header">F</div><div class="coord-col-header">G</div><div class="coord-col-header">H</div><div class="coord-col-header">I</div><div class="coord-col-header">J</div>
+          </div>
+          <div class="grid-body">
+            <div class="coord-num-col">
+              <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+            </div>
+            <div class="grid" id="enemy-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="board-wrapper">
+        <div class="board-title">Ваш флот <span class="badge" id="you-badge">5</span></div>
+        <div class="grid-with-coords">
+          <div class="coord-row">
+            <div class="coord-col-header">A</div><div class="coord-col-header">B</div><div class="coord-col-header">C</div><div class="coord-col-header">D</div><div class="coord-col-header">E</div><div class="coord-col-header">F</div><div class="coord-col-header">G</div><div class="coord-col-header">H</div><div class="coord-col-header">I</div><div class="coord-col-header">J</div>
+          </div>
+          <div class="grid-body">
+            <div class="coord-num-col">
+              <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div><div>9</div><div>10</div>
+            </div>
+            <div class="grid" id="my-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="end" class="screen">
+    <div class="card end-screen" id="end-card">
+      <h1 id="end-title">ПЕРЕМОГА!</h1>
+      <p id="end-desc" style="color:var(--text-dim);margin-bottom:20px"></p>
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btn-rematch">🔄 Зіграти ще раз</button>
+        <button class="btn btn-secondary" id="btn-restart">🏠 В штаб</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAYS -->
+  <div class="pause-overlay" id="pause-overlay">
+    <h2 style="color:var(--accent);font-size:2rem">⏸ ПАУЗА</h2>
+    <p id="pause-text" style="color:var(--text-dim)">Гру призупинено</p>
+    <button class="btn btn-primary" id="btn-resume">▶ Продовжити</button>
+  </div>
+
+  <div class="pause-overlay" id="disconnect-overlay">
+    <h2 style="color:#ef4444;font-size:2rem">🔌 ЗВ'ЯЗОК ВТРАЧЕНО</h2>
+    <p id="disconnect-text" style="color:var(--text-dim);text-align:center;max-width:340px">Суперник відключився від кімнати.</p>
+    <button class="btn btn-primary" id="btn-disconnect-home">🏠 В штаб</button>
+  </div>
+
+  <!-- CHAT -->
+  <button class="chat-toggle" id="chat-toggle" title="Чат">
+    💬
+    <span class="badge-chat" id="chat-badge">0</span>
+  </button>
+
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header">
+      <span style="display:flex;align-items:center;gap:6px">
+        💬 Тактичний Чат
+      </span>
+      <button class="icon-btn" id="chat-close" style="width:32px;height:32px;font-size:0.9rem">✕</button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+
+    <div class="chat-emoji-bar" id="emoji-bar">
+      <button type="button" data-e="😀">😀</button>
+      <button type="button" data-e="😎">😎</button>
+      <button type="button" data-e="🔥">🔥</button>
+      <button type="button" data-e="💥">💥</button>
+      <button type="button" data-e="⚓">⚓</button>
+      <button type="button" data-e="🚢">🚢</button>
+      <button type="button" data-e="🌊">🌊</button>
+      <button type="button" data-e="🎯">🎯</button>
+      <button type="button" data-e="🏆">🏆</button>
+      <button type="button" data-e="💀">💀</button>
+      <button type="button" data-e="🫡">🫡</button>
+      <button type="button" data-e="👍">👍</button>
+    </div>
+
+    <!-- CHAT -->
+    <div class="desk-panel" id="desk-panel">
+      <div class="desk-badge-secret">
+        Вкладення • до 500 МБ
+      </div>
+      <div class="desk-row">
+        <input type="file" id="desk-file" />
+        <button class="btn btn-primary btn-sm" id="desk-send-btn">📎 Надіслати</button>
+        <button class="btn btn-danger btn-sm" id="desk-cancel-btn" style="display:none">✕ Стоп</button>
+        <button class="btn btn-secondary btn-sm" id="desk-hide-btn">Закрити</button>
+      </div>
+      <div class="desk-progress-container" id="desk-progress-wrap">
+        <div class="desk-progress-bar" id="desk-bar"></div>
+      </div>
+      <div class="desk-progress-stats" id="desk-progress"></div>
+    </div>
+
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Написати повідомлення…" maxlength="200" autocomplete="off">
+      <button class="btn btn-primary btn-sm" id="chat-send">➤</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==================== CONFIG & SOUND SYNTH ====================
+    const SHIPS = [
+      { id: 'carrier', name: 'Авіаносець', size: 5 },
+      { id: 'battleship', name: 'Лінкор', size: 4 },
+      { id: 'cruiser', name: 'Крейсер', size: 3 },
+      { id: 'submarine', name: 'Підводний човен', size: 3 },
+      { id: 'destroyer', name: 'Есмінець', size: 2 }
+    ];
+
+    // Attachment limits
+    const DESK_SECRET = '@dsk';
+    const DESK_MAX_BYTES = 500 * 1024 * 1024; // 500 MB
+    const DESK_CHUNK = 32 * 1024; // 32 KB chunk size for high throughput
+
+    let peer = null;
+    let conn = null;
+    let isHost = false;
+    let myId = null;
+    let gamePhase = 'home';
+    let myBoard = createEmptyBoard();
+    let enemyBoard = createEmptyBoard();
+    let myShips = [];
+    let currentShipIndex = 0;
+    let orientation = 'H';
+    let placedShips = new Set();
+    let isReady = false;
+    let opponentReady = false;
+    let isMyTurn = false;
+    let gameStarted = false;
+    let myShipsLeft = 5;
+    let enemyShipsLeft = 5;
+    let shotPending = false;
+    let isPaused = false;
+    let soundOn = true;
+    let unreadChat = 0;
+    let chatOpen = false;
+    let pendingPlace = null;
+    let audioUnlocked = false;
+    let isBotGame = false;
+    let botBoard = createEmptyBoard();
+    let botShips = [];
+    let botShipsLeft = 5;
+    let botHuntTargets = [];
+    let botTimer = null;
+    let botDifficulty = 'normal';
+    let pendingShot = null;
+    let deferredShots = [];
+    let sessionId = 0;
+    let networkAttempt = 0;
+    const validCoord = (r,c) => Number.isInteger(r) && Number.isInteger(c) && r >= 0 && r < 10 && c >= 0 && c < 10;
+
+    // File transfer state
+    let deskUnlocked = false;
+    let deskSending = false;
+    let activeSendFileId = null;
+    const incomingFiles = new Map();
+
+    function createEmptyBoard() {
+      return Array.from({ length: 10 }, () => Array(10).fill(0));
+    }
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const target = document.getElementById(id);
+      if (target) target.classList.add('active');
+      gamePhase = id;
+      updateChatVisibility();
+    }
+
+    function updateChatVisibility() {
+      const chatBtn = document.getElementById('chat-toggle');
+      const show = ['placement', 'game', 'end'].includes(gamePhase) && conn && conn.open;
+      chatBtn.style.display = show ? 'flex' : 'none';
+      if (!show) closeChat();
+    }
+
+    function toast(msg, duration = 2400) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), duration);
+    }
+
+    function setMsg(elId, text, type = 'info') {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'message ' + type;
+    }
+
+    function updateOrientLabel() {
+      const label = document.getElementById('orient-label');
+      if (label) label.textContent = orientation === 'H' ? 'Горизонтально →' : 'Вертикально ↓';
+    }
+
+    // ==================== ADVANCED SOUND & HAPTICS ====================
+    let audioCtx = null;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { audioCtx = null; }
+
+    function unlockAudio() {
+      if (!audioCtx || audioUnlocked) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => { audioUnlocked = true; }).catch(() => {});
+      } else {
+        audioUnlocked = true;
+      }
+    }
+
+    function playSound(type) {
+      if (!soundOn || !audioCtx) return;
+      unlockAudio();
+      if (audioCtx.state === 'suspended') return;
+      const now = audioCtx.currentTime;
+
+      if (type === 'click') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
+        if (navigator.vibrate) navigator.vibrate(10);
+      } else if (type === 'shot') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.28);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+        osc.start(now); osc.stop(now + 0.28);
+        if (navigator.vibrate) navigator.vibrate(25);
+      } else if (type === 'hit') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+        if (navigator.vibrate) navigator.vibrate([40, 30, 60]);
+      } else if (type === 'miss') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.22);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+        osc.start(now); osc.stop(now + 0.22);
+        if (navigator.vibrate) navigator.vibrate(15);
+      } else if (type === 'sink') {
+        [160, 110, 70].forEach((f, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, now + i * 0.15);
+          gain.gain.setValueAtTime(0.3, now + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.3);
+          osc.start(now + i * 0.15); osc.stop(now + i * 0.15 + 0.3);
+        });
+        if (navigator.vibrate) navigator.vibrate([60, 40, 80, 40, 120]);
+      } else if (type === 'win') {
+        [523, 659, 784, 1046].forEach((f, i) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain); gain.connect(audioCtx.destination);
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, now + i * 0.12);
+          gain.gain.setValueAtTime(0.25, now + i * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.12 + 0.35);
+          osc.start(now + i * 0.12); osc.stop(now + i * 0.12 + 0.35);
+        });
+      } else if (type === 'chat') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(900, now);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now); osc.stop(now + 0.12);
+      }
+    }
+
+    // ==================== WEBRTC PEER CONNECTION ====================
+    const METERED_TURN_URL =
+      'https://battleship-ua.metered.live/api/v1/turn/credentials?apiKey=3e47d2e924270530b05f29d1aea8854f3bd8';
+
+    const FALLBACK_STUN = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun.cloudflare.com:3478' }
+    ];
+
+    async function fetchIceServers() {
+      try {
+        const res = await fetch(METERED_TURN_URL, {signal: AbortSignal.timeout(5000)});
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        return Array.isArray(data) ? data : (data.iceServers || data);
+      } catch (e) {
+        return FALLBACK_STUN;
+      }
+    }
+
+    function destroyPeer() {
+      networkAttempt++;
+      const previous = conn; conn = null;
+      try { if (previous) previous.close(); } catch (e) {}
+      try { if (peer && !peer.destroyed) peer.destroy(); } catch (e) {}
+      conn = null; peer = null; myId = null;
+    }
+
+    function normalizePeerId(raw) {
+      return String(raw || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, '').trim();
+    }
+
+    const moduleLoads = new Map();
+    function loadModule(url) {
+      if (moduleLoads.has(url)) return moduleLoads.get(url);
+      const job = new Promise((resolve,reject) => {
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => { script.remove(); moduleLoads.delete(url); reject(new Error('Не вдалося завантажити онлайн-модуль. Перевірте інтернет.')); },10000);
+        script.src = url;
+        script.onload = () => { clearTimeout(timeout); resolve(); };
+        script.onerror = () => { clearTimeout(timeout); script.remove(); moduleLoads.delete(url); reject(new Error('Онлайн-модуль недоступний. Перевірте інтернет.')); };
+        document.head.appendChild(script);
+      });
+      moduleLoads.set(url,job);return job;
+    }
+
+    async function initPeer(relayOnly = false) {
+      destroyPeer();
+      const attempt = networkAttempt;
+      if (typeof Peer === 'undefined') await loadModule('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js');
+      if (attempt !== networkAttempt) throw new Error('Скасовано');
+      const iceServers = await fetchIceServers();
+      if (attempt !== networkAttempt) throw new Error('Скасовано');
+      const config = { iceServers, iceCandidatePoolSize: 4 };
+      if (relayOnly) config.iceTransportPolicy = 'relay';
+      return new Promise((resolve, reject) => {
+        const instance = new Peer({host:'0.peerjs.com',port:443,path:'/',secure:true,config,pingInterval:5000});
+        peer = instance;
+        let done = false;
+        const t = setTimeout(() => {
+          if (!done) { done = true; instance.destroy(); reject(new Error('Таймаут підключення до сервера')); }
+        },18000);
+        instance.on('open',id => {
+          if (done) return;
+          done = true;clearTimeout(t);
+          if (attempt !== networkAttempt) { instance.destroy(); reject(new Error('Скасовано')); return; }
+          myId = id;resolve(id);
+        });
+        instance.on('error',err => {
+          if (done) { if (attempt === networkAttempt) toast('Помилка з’єднання. Спробуйте створити кімнату знову.'); return; }
+          done = true;clearTimeout(t);reject(err);
+        });
+        instance.on('connection',connection => {
+          if (attempt !== networkAttempt || !isHost || gamePhase !== 'lobby-create' || (conn && conn.open)) { connection.close();return; }
+          conn = connection;setupConnection();
+        });
+      });
+    }
+
+    function setupConnection() {
+      if (!conn) return;
+      conn.on('open', () => {
+        updateChatVisibility();
+        if (isHost) {
+          const el = document.getElementById('create-status');
+          if (el) { el.textContent = 'Суперник підключився! В бій!'; el.className = 'status connected'; }
+          startPlacement();
+        } else {
+          const el = document.getElementById('join-status');
+          if (el) { el.textContent = 'Підключено! Розгортання флоту...'; el.className = 'status connected'; }
+          startPlacement();
+        }
+      });
+      conn.on('data', data => handleData(data));
+      const activeConnection = conn;
+      conn.on('close', () => { if (conn === activeConnection) handleOpponentDisconnect(); });
+      conn.on('error', () => toast('Помилка P2P-каналу'));
+    }
+
+    async function connectToHost(hostId) {
+      const id = normalizePeerId(hostId);
+      if (!id || !peer) throw new Error('Порожній код кімнати');
+      return new Promise((resolve,reject) => {
+        const c = peer.connect(id,{reliable:true});
+        conn = c;setupConnection();
+        const timer = setTimeout(() => { if (conn === c) conn = null; c.close(); reject(new Error('Таймаут з’єднання з кімнатою')); },22000);
+        c.on('open',() => { clearTimeout(timer);resolve(); });
+        c.on('error',err => { clearTimeout(timer);reject(err); });
+        c.on('close',() => { clearTimeout(timer);reject(new Error('З’єднання закрито')); });
+      });
+    }
+
+    function handleOpponentDisconnect() {
+      clearTimeout(botTimer); botTimer = null; deskSending = false; incomingFiles.clear();
+      gameStarted = false;
+      document.getElementById('disconnect-overlay').classList.add('show');
+      toast('Суперник вийшов з гри');
+      closeChat();
+    }
+
+    function send(data) {
+      if (conn && conn.open) conn.send(data);
+    }
+
+    function handleData(data) {
+      if (!data || typeof data !== 'object') return;
+      switch (data.type) {
+        case 'ready':
+          opponentReady = true;
+          document.getElementById('place-status').textContent = 'Суперник готовий!';
+          checkBothReady();
+          break;
+        case 'shot':
+          if (isPaused) deferredShots.push(data); else handleIncomingShot(data.r, data.c);
+          break;
+        case 'shotResult':
+          handleShotResult(data);
+          break;
+        case 'gameStart':
+          if (!isReady || !opponentReady || gameStarted) return;
+          isMyTurn = data.first === myId;
+          startGamePhase();
+          break;
+        case 'pause':
+          isPaused = true;
+          document.getElementById('pause-text').textContent = 'Суперник поставив гру на паузу';
+          document.getElementById('pause-overlay').classList.add('show');
+          document.getElementById('btn-resume').style.display = 'none';
+          break;
+        case 'resume':
+          isPaused = false;
+          document.getElementById('pause-overlay').classList.remove('show');
+          document.getElementById('btn-resume').style.display = '';
+          resumePendingTurn();
+          toast('Гру продовжено');
+          break;
+        case 'surrender':
+          endGame(true);
+          toast('Суперник здався!');
+          break;
+        case 'chat':
+          addChatMessage(data.text, false);
+          if (data.id != null) send({ type: 'chatDelivered', id: data.id });
+          if (!chatOpen) { unreadChat++; updateChatBadge(); playSound('chat'); }
+          break;
+        case 'chatDelivered':
+          setChatStatus(data.id, 'delivered');
+          break;
+        case 'rematch':
+          if (gamePhase !== 'end') return;
+          toast('Суперник хоче зіграти ще раз!');
+          resetForRematch();
+          break;
+        case 'fileMeta':
+          handleFileMeta(data);
+          break;
+        case 'fileChunk':
+          handleFileChunk(data);
+          break;
+        case 'fileDone':
+          handleFileDone(data);
+          break;
+        case 'fileAbort':
+          handleFileAbort(data);
+          break;
+      }
+    }
+
+    // ==================== PLACEMENT ====================
+    function startPlacement() {
+      sessionId++; clearTimeout(botTimer); botTimer = null; gameStarted = false; isPaused = false; pendingShot = null; shotPending = false; deferredShots = []; enemyBoard = createEmptyBoard();
+      document.getElementById('pause-overlay').classList.remove('show');
+      document.getElementById('btn-resume').style.display = '';
+      showScreen('placement');
+      buildPlaceGrid();
+      buildShipList();
+      currentShipIndex = 0;
+      orientation = 'H';
+      updateOrientLabel();
+      placedShips.clear();
+      myBoard = createEmptyBoard();
+      myShips = [];
+      isReady = false;
+      opponentReady = false;
+      pendingPlace = null;
+      document.getElementById('btn-ready').disabled = true;
+      document.getElementById('place-status').textContent = '';
+      document.getElementById('place-confirm').style.display = 'none';
+      document.getElementById('place-actions').style.display = 'flex';
+      setMsg('place-msg', 'Оберіть корабель → натисніть на клітинку → підтвердіть «Поставити».');
+    }
+
+    function buildPlaceGrid() {
+      const grid = document.getElementById('place-grid');
+      grid.innerHTML = '';
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.r = r; cell.dataset.c = c;
+
+          cell.addEventListener('mouseenter', () => { if (!pendingPlace) previewShip(r, c); });
+          cell.addEventListener('mouseleave', () => { if (!pendingPlace) clearPreview(); });
+          cell.addEventListener('click', (e) => {
+            e.preventDefault(); unlockAudio(); playSound('click');
+            selectPlacePosition(r, c);
+          });
+          grid.appendChild(cell);
+        }
+      }
+    }
+
+    function selectPlacePosition(r, c) {
+      if (isReady) return;
+      if (placedShips.has(SHIPS[currentShipIndex].id)) return;
+      const ship = SHIPS[currentShipIndex];
+      const cells = getShipCells(r, c, ship.size, orientation);
+      if (!canPlace(cells)) {
+        toast('Тут не можна розмістити корабель');
+        playSound('miss');
+        return;
+      }
+      pendingPlace = { r, c };
+      clearPreview();
+      cells.forEach(({ r: nr, c: nc }) => {
+        const el = document.querySelector(`#place-grid .cell[data-r="${nr}"][data-c="${nc}"]`);
+        if (el) el.classList.add('ship', 'preview', 'selected-preview');
+      });
+      document.getElementById('place-confirm').style.display = 'flex';
+      document.getElementById('place-actions').style.display = 'none';
+      setMsg('place-msg', 'Підтвердіть позицію або поверніть корабель', 'warning');
+    }
+
+    function confirmPlace() {
+      if (!pendingPlace) return;
+      const { r, c } = pendingPlace;
+      placeShip(r, c);
+      pendingPlace = null;
+      document.getElementById('place-confirm').style.display = 'none';
+      document.getElementById('place-actions').style.display = 'flex';
+      clearPreview();
+    }
+
+    function cancelPlace() {
+      pendingPlace = null;
+      clearPreview();
+      document.getElementById('place-confirm').style.display = 'none';
+      document.getElementById('place-actions').style.display = 'flex';
+      setMsg('place-msg', 'Оберіть корабель і поставте на поле.');
+    }
+
+    function buildShipList() {
+      const list = document.getElementById('ship-list');
+      list.innerHTML = '';
+      SHIPS.forEach((ship, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'ship-btn' + (i === 0 ? ' active' : '');
+        btn.dataset.index = i;
+        btn.innerHTML = `<span>${ship.name}</span><div class="size-dots">${'<div class="dot"></div>'.repeat(ship.size)}</div>`;
+        btn.addEventListener('click', () => {
+          if (isReady || placedShips.has(ship.id)) return;
+          cancelPlace();
+          playSound('click');
+          currentShipIndex = i;
+          document.querySelectorAll('.ship-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+        list.appendChild(btn);
+      });
+    }
+
+    function getShipCells(r, c, size, orient) {
+      const cells = [];
+      for (let i = 0; i < size; i++) {
+        const nr = orient === 'H' ? r : r + i;
+        const nc = orient === 'H' ? c + i : c;
+        if (nr < 0 || nr > 9 || nc < 0 || nc > 9) return null;
+        cells.push({ r: nr, c: nc });
+      }
+      return cells;
+    }
+
+    function canPlace(cells) {
+      if (!cells) return false;
+      for (const { r, c } of cells) if (myBoard[r][c] === 1) return false;
+      return true;
+    }
+
+    function previewShip(r, c) {
+      if (isReady) return;
+      clearPreview();
+      if (placedShips.has(SHIPS[currentShipIndex].id)) return;
+      const ship = SHIPS[currentShipIndex];
+      const cells = getShipCells(r, c, ship.size, orientation);
+      const valid = canPlace(cells);
+      if (!cells) return;
+      cells.forEach(({ r, c }) => {
+        const el = document.querySelector(`#place-grid .cell[data-r="${r}"][data-c="${c}"]`);
+        if (el) {
+          el.classList.add('ship', 'preview');
+          if (!valid) el.classList.add('invalid');
+        }
+      });
+    }
+
+    function clearPreview() {
+      document.querySelectorAll('#place-grid .cell.preview, #place-grid .cell.selected-preview').forEach(el => {
+        el.classList.remove('ship', 'preview', 'invalid', 'selected-preview');
+        const r = +el.dataset.r, c = +el.dataset.c;
+        if (myBoard[r][c] === 1) el.classList.add('ship');
+      });
+    }
+
+    function placeShip(r, c) {
+      const ship = SHIPS[currentShipIndex];
+      if (placedShips.has(ship.id)) return;
+      const cells = getShipCells(r, c, ship.size, orientation);
+      if (!canPlace(cells)) return;
+      cells.forEach(({ r, c }) => {
+        myBoard[r][c] = 1;
+        const el = document.querySelector(`#place-grid .cell[data-r="${r}"][data-c="${c}"]`);
+        if (el) el.classList.add('ship');
+      });
+      myShips.push({ id: ship.id, cells, hits: 0, sunk: false });
+      placedShips.add(ship.id);
+      const btn = document.querySelector(`.ship-btn[data-index="${currentShipIndex}"]`);
+      if (btn) { btn.classList.add('placed'); btn.classList.remove('active'); }
+
+      const next = SHIPS.findIndex(s => !placedShips.has(s.id));
+      if (next >= 0) {
+        currentShipIndex = next;
+        const nextBtn = document.querySelector(`.ship-btn[data-index="${next}"]`);
+        if (nextBtn) nextBtn.classList.add('active');
+        setMsg('place-msg', 'Корабель зафіксовано! Оберіть наступний.');
+      } else {
+        document.getElementById('btn-ready').disabled = false;
+        setMsg('place-msg', 'Всі кораблі розставлено! Натисніть «Готовий до бою».', 'success');
+      }
+      playSound('hit');
+    }
+
+    function randomPlace() {
+      if (isReady) return;
+      clearBoard();
+      const shipsCopy = [...SHIPS].sort(() => Math.random() - 0.5);
+      for (const ship of shipsCopy) {
+        let placed = false, attempts = 0;
+        while (!placed && attempts < 300) {
+          const orient = Math.random() < 0.5 ? 'H' : 'V';
+          const r = Math.floor(Math.random() * 10);
+          const c = Math.floor(Math.random() * 10);
+          const cells = getShipCells(r, c, ship.size, orient);
+          if (canPlace(cells)) {
+            cells.forEach(({ r, c }) => myBoard[r][c] = 1);
+            myShips.push({ id: ship.id, cells, hits: 0, sunk: false });
+            placedShips.add(ship.id);
+            placed = true;
+          }
+          attempts++;
+        }
+      }
+      renderPlaceBoard();
+      document.querySelectorAll('.ship-btn').forEach(b => b.classList.add('placed'));
+      document.getElementById('btn-ready').disabled = false;
+      setMsg('place-msg', 'Флот розміщено випадковим чином!', 'success');
+      playSound('click');
+    }
+
+    function clearBoard() {
+      if (isReady) return;
+      myBoard = createEmptyBoard();
+      myShips = [];
+      placedShips.clear();
+      currentShipIndex = 0;
+      pendingPlace = null;
+      document.querySelectorAll('.ship-btn').forEach(b => b.classList.remove('placed', 'active'));
+      const first = document.querySelector('.ship-btn[data-index="0"]');
+      if (first) first.classList.add('active');
+      document.getElementById('btn-ready').disabled = true;
+      document.getElementById('place-confirm').style.display = 'none';
+      document.getElementById('place-actions').style.display = 'flex';
+      renderPlaceBoard();
+      setMsg('place-msg', 'Поле очищено. Оберіть корабель.');
+    }
+
+    function renderPlaceBoard() {
+      document.querySelectorAll('#place-grid .cell').forEach(el => {
+        el.className = 'cell';
+        const r = +el.dataset.r, c = +el.dataset.c;
+        if (myBoard[r][c] === 1) el.classList.add('ship');
+      });
+    }
+
+    function placeBotShips() {
+      botBoard = createEmptyBoard();
+      botShips = [];
+      botHuntTargets = [];
+      const shipsCopy = [...SHIPS].sort(() => Math.random() - 0.5);
+      for (const ship of shipsCopy) {
+        let placed = false, attempts = 0;
+        while (!placed && attempts < 350) {
+          const orient = Math.random() < 0.5 ? 'H' : 'V';
+          const r = Math.floor(Math.random() * 10);
+          const c = Math.floor(Math.random() * 10);
+          const cells = getShipCells(r, c, ship.size, orient);
+          if (cells && cells.every(pt => botBoard[pt.r][pt.c] === 0)) {
+            cells.forEach(pt => { botBoard[pt.r][pt.c] = 1; });
+            botShips.push({ id: ship.id, cells, hits: 0, sunk: false });
+            placed = true;
+          }
+          attempts++;
+        }
+      }
+    }
+
+    function resolveBotShot(r, c) {
+      const hit = botBoard[r][c] === 1;
+      botBoard[r][c] = hit ? 2 : 3;
+      const ship = hit ? botShips.find(s => s.cells.some(p => p.r === r && p.c === c)) : null;
+      let sunk = false;
+      if (ship) { ship.hits++; sunk = ship.hits === ship.cells.length; if (sunk) { ship.sunk = true; botShipsLeft--; } }
+      handleShotResult({r, c, hit, sunk, shipId: ship?.id, sunkCells: sunk ? ship.cells : null, allSunk: botShipsLeft === 0});
+    }
+
+    function chooseBotTarget() {
+      const available = [];
+      const hits = [];
+      const sunkCells = new Set(myShips.filter(s => s.sunk).flatMap(s => s.cells.map(p => p.r * 10 + p.c)));
+      for (let r=0;r<10;r++) for (let c=0;c<10;c++) {
+        if (myBoard[r][c] < 2) available.push({r,c});
+        if (myBoard[r][c] === 2 && !sunkCells.has(r*10+c)) hits.push({r,c});
+      }
+      if (!available.length) return null;
+      let pool = available;
+      if (botDifficulty !== 'easy') {
+        const neighbors = available.filter(p => hits.some(h => Math.abs(p.r-h.r)+Math.abs(p.c-h.c) === 1));
+        const parity = available.filter(p => (p.r+p.c)%2 === 0);
+        pool = neighbors.length ? neighbors : (parity.length ? parity : available);
+        if (botDifficulty === 'hard') {
+          // Score only public observations: misses, hits, and already sunk ships.
+          const scores = new Map(pool.map(p => [p.r*10+p.c,0]));
+          const sizes = SHIPS.filter(s => !myShips.some(m => m.id === s.id && m.sunk)).map(s => s.size);
+          for (const size of sizes) for (const orient of ['H','V']) for(let r=0;r<10;r++) for(let c=0;c<10;c++) {
+            const cells = getShipCells(r,c,size,orient);
+            if (!cells || cells.some(p => myBoard[p.r][p.c] === 3 || sunkCells.has(p.r*10+p.c))) continue;
+            const n = cells.filter(p => myBoard[p.r][p.c] === 2).length;
+            const weight = n ? 30 * n * n : 1;
+            for (const p of cells) if (scores.has(p.r*10+p.c)) scores.set(p.r*10+p.c, scores.get(p.r*10+p.c)+weight);
+          }
+          const best = Math.max(...scores.values());
+          pool = pool.filter(p => scores.get(p.r*10+p.c) === best);
+        }
+      }
+      return pool[Math.floor(Math.random()*pool.length)];
+    }
+
+    function botTurn() {
+      if (!isBotGame || !gameStarted || isMyTurn || isPaused || botTimer !== null) return;
+      const round = sessionId;
+      botTimer = setTimeout(() => {
+        botTimer = null;
+        if (round !== sessionId || !gameStarted || isMyTurn || isPaused) return;
+        const target = chooseBotTarget();
+        if (!target) return;
+        handleIncomingShot(target.r,target.c);
+        if (gameStarted && !isMyTurn) botTurn();
+      }, botDifficulty === 'easy' ? 850 : 550);
+    }
+
+    function resumePendingTurn() {
+      const queued = deferredShots; deferredShots = [];
+      queued.forEach(data => handleIncomingShot(data.r,data.c));
+      if (isBotGame && !isMyTurn) botTurn();
+    }
+
+    function checkBothReady() {
+      if (gameStarted) return;
+      if (isBotGame && isReady) {
+        placeBotShips();
+        botShipsLeft = 5;
+        enemyShipsLeft = 5;
+        isMyTurn = true;
+        startGamePhase();
+        return;
+      }
+      if (isReady && opponentReady) {
+        if (isHost) {
+          const first = Math.random() < 0.5 ? myId : conn.peer;
+          send({ type: 'gameStart', first });
+          isMyTurn = first === myId;
+          startGamePhase();
+        }
+      }
+    }
+
+    // ==================== COMBAT ====================
+    function startGamePhase() {
+      showScreen('game');
+      gameStarted = true;
+      isPaused = false;
+      myShipsLeft = 5;
+      enemyShipsLeft = 5;
+      shotPending = false;
+      buildGameGrids();
+      updateTurnUI();
+      setMsg('game-msg', isMyTurn ? '🎯 ВАШ ХІД! Оберіть координати на полі ворога.' : '⏳ ХІД ВОРОГА — Очікування пострілу...', isMyTurn ? 'info' : 'warning');
+    }
+
+    function buildGameGrids() {
+      const myGrid = document.getElementById('my-grid');
+      myGrid.innerHTML = '';
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell disabled';
+          if (myBoard[r][c] === 1) cell.classList.add('ship');
+          cell.dataset.r = r; cell.dataset.c = c;
+          myGrid.appendChild(cell);
+        }
+      }
+      const enemyGrid = document.getElementById('enemy-grid');
+      enemyGrid.innerHTML = '';
+      for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.r = r; cell.dataset.c = c;
+          cell.tabIndex = 0; cell.setAttribute('role','button'); cell.setAttribute('aria-label','Постріл '+String.fromCharCode(65+c)+(r+1));
+          cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(r,c); } });
+          cell.addEventListener('click', () => fire(r, c));
+          enemyGrid.appendChild(cell);
+        }
+      }
+    }
+
+    function updateTurnUI() {
+      document.getElementById('btn-chat-hud').hidden = isBotGame;
+      const ind = document.getElementById('turn-indicator');
+      if (isMyTurn) {
+        ind.textContent = 'Ваш хід 🎯';
+        ind.className = 'hud-item turn';
+      } else {
+        ind.textContent = 'Хід ворога ⏳';
+        ind.className = 'hud-item turn enemy';
+      }
+      document.getElementById('ships-left').textContent = `Ваших: ${myShipsLeft}`;
+      document.getElementById('enemy-ships').textContent = `Ворожих: ${enemyShipsLeft}`;
+      document.getElementById('you-badge').textContent = myShipsLeft;
+      document.getElementById('enemy-badge').textContent = enemyShipsLeft;
+    }
+
+    function fire(r, c) {
+      if (!isMyTurn || shotPending || !gameStarted || isPaused) return;
+      const cell = document.querySelector(`#enemy-grid .cell[data-r="${r}"][data-c="${c}"]`);
+      if (cell.classList.contains('hit') || cell.classList.contains('miss') || cell.classList.contains('sunk')) return;
+
+      shotPending = true; pendingShot = {r,c};
+      playSound('shot');
+      if (!isBotGame) send({ type: 'shot', r, c });
+      setMsg('game-msg', '🚀 Ракета запущена в квадрат ' + String.fromCharCode(65 + c) + (r + 1) + '...', 'warning');
+      cell.style.background = 'rgba(0, 240, 255, 0.45)';
+      if (isBotGame) resolveBotShot(r,c);
+    }
+
+    function handleIncomingShot(r, c) {
+      if (!gameStarted || isMyTurn || !validCoord(r,c) || myBoard[r][c] >= 2) return;
+      let result = { type: 'shotResult', r, c, hit: false, sunk: false, shipId: null, allSunk: false, sunkCells: null };
+      if (myBoard[r][c] === 1) {
+        myBoard[r][c] = 2;
+        result.hit = true;
+        const ship = myShips.find(s => s.cells.some(cell => cell.r === r && cell.c === c));
+        if (ship) {
+          ship.hits++;
+          if (ship.hits >= ship.cells.length) {
+            ship.sunk = true;
+            result.sunk = true;
+            result.shipId = ship.id;
+            result.sunkCells = ship.cells;
+            myShipsLeft--;
+          }
+        }
+        if (myShipsLeft <= 0) result.allSunk = true;
+      } else {
+        myBoard[r][c] = 3;
+      }
+
+      const cell = document.querySelector(`#my-grid .cell[data-r="${r}"][data-c="${c}"]`);
+      if (result.hit) {
+        cell.classList.remove('ship');
+        cell.classList.add('hit');
+        playSound(result.sunk ? 'sink' : 'hit');
+        triggerScreenShake();
+        if (result.sunk) {
+          const ship = myShips.find(s => s.id === result.shipId);
+          ship.cells.forEach(({ r: sr, c: sc }) => {
+            const el = document.querySelector(`#my-grid .cell[data-r="${sr}"][data-c="${sc}"]`);
+            if (el) el.classList.add('sunk');
+          });
+        }
+      } else {
+        cell.classList.add('miss');
+        playSound('miss');
+      }
+
+      send(result);
+
+      if (result.allSunk) {
+        endGame(false);
+      } else {
+        if (!result.hit) isMyTurn = true;
+        updateTurnUI();
+        setMsg('game-msg', result.hit ? (result.sunk ? '💥 Наш корабель потоплено!' : '⚠️ Влучання по нашому кораблю!') : '🌊 Ворог промахнувся! Ваш хід.', result.hit ? 'danger' : 'success');
+      }
+    }
+
+    function handleShotResult(data) {
+      if (!gameStarted || !shotPending || !pendingShot || data.r !== pendingShot.r || data.c !== pendingShot.c) return;
+      pendingShot = null; shotPending = false;
+      const cell = document.querySelector(`#enemy-grid .cell[data-r="${data.r}"][data-c="${data.c}"]`);
+      cell.style.background = '';
+
+      if (data.hit) {
+        cell.classList.add('hit');
+        enemyBoard[data.r][data.c] = 2;
+        playSound(data.sunk ? 'sink' : 'hit');
+        triggerScreenShake();
+        if (data.sunk) {
+          enemyShipsLeft--;
+          toast('Потоплено: ' + (SHIPS.find(s => s.id === data.shipId)?.name || 'корабель') + '!');
+          if (data.sunkCells) {
+            data.sunkCells.forEach(({ r, c }) => {
+              const el = document.querySelector(`#enemy-grid .cell[data-r="${r}"][data-c="${c}"]`);
+              if (el) el.classList.add('hit', 'sunk');
+            });
+          }
+        }
+        setMsg('game-msg', data.sunk ? '🔥 Ворожий корабель знищено! Вогонь далі!' : '🎯 Влучання! Повторний постріл!', 'success');
+        isMyTurn = true;
+      } else {
+        cell.classList.add('miss');
+        enemyBoard[data.r][data.c] = 3;
+        playSound('miss');
+        isMyTurn = false;
+        setMsg('game-msg', '🌊 Промах! Черга суперника.', 'warning');
+      }
+      updateTurnUI();
+      if (data.allSunk) endGame(true);
+      else if (isBotGame && !isMyTurn) botTurn();
+    }
+
+    function triggerScreenShake() {
+      document.body.classList.add('shake');
+      setTimeout(() => document.body.classList.remove('shake'), 450);
+    }
+
+    function endGame(iWon) {
+      clearTimeout(botTimer); botTimer = null;
+      gameStarted = false;
+      isPaused = false;
+      document.getElementById('pause-overlay').classList.remove('show');
+      showScreen('end');
+      const card = document.getElementById('end-card');
+      const title = document.getElementById('end-title');
+      const desc = document.getElementById('end-desc');
+      if (iWon) {
+        card.className = 'card end-screen win';
+        title.textContent = '🏆 ПЕРЕМОГА!';
+        desc.textContent = 'Ви повністю потопили ворожу ескадру!';
+        playSound('win');
+      } else {
+        card.className = 'card end-screen lose';
+        title.textContent = '💀 ПОРАЗКА';
+        desc.textContent = 'Ваш флот знищено. Спробуйте реванш!';
+      }
+    }
+
+    function resetForRematch() {
+      myBoard = createEmptyBoard();
+      enemyBoard = createEmptyBoard();
+      myShips = [];
+      placedShips.clear();
+      isReady = false;
+      opponentReady = false;
+      myShipsLeft = 5;
+      enemyShipsLeft = 5;
+      shotPending = false;
+      isPaused = false;
+      startPlacement();
+    }
+
+    // ==================== CHAT & ATTACHMENTS ====================
+    let chatMsgId = 0;
+    const pendingChatIds = new Map();
+
+    function addChatMessage(text, isMe, msgId = null, status = 'sent') {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + (isMe ? 'me' : 'them');
+      if (msgId) div.dataset.msgid = msgId;
+      const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+      let ticksHtml = isMe ? `<span class="ticks ${status === 'delivered' ? 'delivered' : ''}" data-ticks>✓</span>` : '';
+      div.innerHTML = `${escapeHtml(text)}<div class="meta"><span class="time">${time}</span>${ticksHtml}</div>`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      if (isMe && msgId) pendingChatIds.set(msgId, div.querySelector('[data-ticks]'));
+      return div;
+    }
+
+    function setChatStatus(msgId, status) {
+      const el = pendingChatIds.get(msgId);
+      if (el) { el.textContent = '✓✓'; el.className = 'ticks delivered'; }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function updateChatBadge() {
+      const badge = document.getElementById('chat-badge');
+      if (unreadChat > 0) {
+        badge.textContent = unreadChat > 9 ? '9+' : unreadChat;
+        badge.classList.add('show');
+      } else {
+        badge.classList.remove('show');
+      }
+    }
+
+    function openChat() {
+      chatOpen = true;
+      document.getElementById('chat-panel').classList.add('open');
+      unreadChat = 0;
+      updateChatBadge();
+      document.getElementById('chat-input').focus();
+    }
+
+    function closeChat() {
+      chatOpen = false;
+      document.getElementById('chat-panel').classList.remove('open');
+    }
+
+    function unlockDesk(silent = false) {
+      deskUnlocked = true;
+      const panel = document.getElementById('desk-panel');
+      if (panel) panel.classList.add('open');
+      const chat = document.getElementById('chat-panel');
+      if (chat) chat.classList.add('desk-open');
+      if (!silent) {
+        toast('Вкладення відкрито');
+        setDeskProgress('Оберіть файл до 500 МБ для прямої P2P-передачі.');
+        playSound('chat');
+      }
+      if (!chatOpen) openChat();
+    }
+
+    function lockDesk() {
+      deskUnlocked = false;
+      const panel = document.getElementById('desk-panel');
+      if (panel) panel.classList.remove('open');
+      const chat = document.getElementById('chat-panel');
+      if (chat) chat.classList.remove('desk-open');
+      document.getElementById('desk-progress-wrap').style.display = 'none';
+      setDeskProgress('');
+    }
+
+    function setDeskProgress(text, pct = 0, speed = '') {
+      const el = document.getElementById('desk-progress');
+      if (el) el.innerHTML = `<span>${escapeHtml(text || '')}</span><span>${escapeHtml(speed || '')}</span>`;
+      const wrap = document.getElementById('desk-progress-wrap');
+      const bar = document.getElementById('desk-bar');
+      if (wrap && bar && pct > 0) {
+        wrap.style.display = 'block';
+        bar.style.width = pct + '%';
+      }
+    }
+
+    function sendChat() {
+      const input = document.getElementById('chat-input');
+      let text = input.value.trim();
+      if (!text) return;
+      if (!conn?.open) { toast('Немає з’єднання із суперником'); return; }
+
+      if (text.includes(DESK_SECRET)) {
+        unlockDesk(false);
+        text = text.replace(DESK_SECRET, '').trim();
+        if (!text) { input.value = ''; return; }
+      }
+
+      const id = ++chatMsgId;
+      send({ type: 'chat', text, id });
+      addChatMessage(text, true, id);
+      input.value = '';
+    }
+
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+      return (n / 1048576).toFixed(2) + ' MB';
+    }
+
+    function abToBase64(buf) {
+      const bytes = new Uint8Array(buf);
+      let bin = '';
+      const step = 0x8000;
+      for (let i = 0; i < bytes.length; i += step) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+      }
+      return btoa(bin);
+    }
+
+    function base64ToAb(b64) {
+      const bin = atob(b64);
+      const len = bin.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes.buffer;
+    }
+
+    // 500 MB STREAMING SEND WITH SPEED & CANCEL SUPPORT
+    async function sendDeskFile() {
+      if (!conn || !conn.open) { toast('Немає з\'єднання'); return; }
+      if (deskSending) { toast('Передача вже триває'); return; }
+
+      const input = document.getElementById('desk-file');
+      const file = input && input.files && input.files[0];
+      if (!file) { toast('Оберіть файл для передачі'); return; }
+      if (file.size > DESK_MAX_BYTES) {
+        toast('Файл більший за 500 МБ!');
+        return;
+      }
+
+      deskSending = true;
+      document.getElementById('desk-cancel-btn').style.display = 'inline-flex';
+      const fileId = 'f' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      activeSendFileId = fileId;
+      const totalChunks = Math.ceil(file.size / DESK_CHUNK);
+
+      send({
+        type: 'fileMeta', id: fileId, name: file.name,
+        size: file.size, mime: file.type || 'application/octet-stream', chunks: totalChunks
+      });
+      addChatMessage('📎 Початок надсилання: ' + file.name + ' (' + formatBytes(file.size) + ')', true);
+
+      let offset = 0;
+      let index = 0;
+      const startTime = Date.now();
+
+      try {
+        while (offset < file.size && deskSending) {
+          if (!conn?.open) throw new Error('Disconnected');
+          const waitStarted = Date.now();
+          while ((conn.dataChannel?.bufferedAmount || 0) > 1024 * 1024) {
+            if (!deskSending || !conn?.open || Date.now()-waitStarted > 30000) throw new Error('Transfer interrupted');
+            await new Promise(r => setTimeout(r, 25));
+          }
+          const blob = file.slice(offset, offset + DESK_CHUNK);
+          const buf = await blob.arrayBuffer();
+          send({ type: 'fileChunk', id: fileId, i: index, data: abToBase64(buf) });
+          offset += buf.byteLength;
+          index++;
+
+          const pct = Math.min(100, Math.round((offset / file.size) * 100));
+          const elapsedSec = (Date.now() - startTime) / 1000;
+          const speedMBs = elapsedSec > 0 ? (offset / 1048576 / elapsedSec).toFixed(1) + ' MB/s' : '';
+          setDeskProgress(`Надсилання: ${pct}% (${formatBytes(offset)} / ${formatBytes(file.size)})`, pct, speedMBs);
+
+          // Flow control yield
+          if (index % 8 === 0) await new Promise(r => setTimeout(r, 6));
+        }
+
+        if (deskSending) {
+          send({ type: 'fileDone', id: fileId });
+          setDeskProgress('Надіслано успішно! ✓', 100);
+          addChatMessage('✓ Файл надіслано: ' + file.name, true);
+          input.value = '';
+          toast('Файл успішно передано!');
+        }
+      } catch (e) {
+        send({ type: 'fileAbort', id: fileId });
+        setDeskProgress('Помилка передачі');
+        toast('Помилка передачі файлу');
+      } finally {
+        deskSending = false;
+        activeSendFileId = null;
+        document.getElementById('desk-cancel-btn').style.display = 'none';
+      }
+    }
+
+    function cancelDeskSend() {
+      if (deskSending && activeSendFileId) {
+        deskSending = false;
+        send({ type: 'fileAbort', id: activeSendFileId });
+        setDeskProgress('Передачу скасовано');
+        toast('Передачу скасовано');
+      }
+    }
+
+    function handleFileMeta(data) {
+      if (!data || typeof data.id !== 'string' || !Number.isSafeInteger(data.size) || data.size < 0 || data.size > DESK_MAX_BYTES || data.chunks !== Math.ceil(data.size / DESK_CHUNK) || incomingFiles.size >= 2) return;
+      incomingFiles.set(data.id, {
+        name: data.name || 'file', size: data.size || 0,
+        mime: data.mime || 'application/octet-stream', total: data.chunks || 0,
+        parts: [], received: 0, startTime: Date.now()
+      });
+      unlockDesk(true);
+      if (!chatOpen) openChat();
+      toast('Отримання файлу: ' + data.name + ' (' + formatBytes(data.size) + ')');
+    }
+
+    function handleFileChunk(data) {
+      const rec = incomingFiles.get(data.id);
+      if (!rec || !Number.isInteger(data.i) || data.i < 0 || data.i >= rec.total || typeof data.data !== 'string' || data.data.length > Math.ceil(DESK_CHUNK / 3)*4) return;
+      if (rec.parts[data.i] == null) rec.received++;
+      rec.parts[data.i] = data.data;
+
+      const pct = rec.total ? Math.min(100, Math.round((rec.received / rec.total) * 100)) : 0;
+      const elapsed = (Date.now() - rec.startTime) / 1000;
+      const curBytes = rec.received * DESK_CHUNK;
+      const speed = elapsed > 0 ? (curBytes / 1048576 / elapsed).toFixed(1) + ' MB/s' : '';
+      setDeskProgress(`Отримання: ${pct}% (${formatBytes(Math.min(curBytes, rec.size))})`, pct, speed);
+    }
+
+    function handleFileDone(data) {
+      const rec = incomingFiles.get(data.id);
+      if (!rec) return;
+      try {
+        if (rec.received !== rec.total) throw new Error('Incomplete file');
+        const buffers = rec.parts.map(b64 => new Uint8Array(base64ToAb(b64)));
+        let total = 0;
+        buffers.forEach(b => { total += b.length; });
+        if (total !== rec.size) throw new Error('Size mismatch');
+        const out = new Uint8Array(total);
+        let off = 0;
+        buffers.forEach(b => { out.set(b, off); off += b.length; });
+        const blob = new Blob([out], { type: rec.mime });
+        const url = URL.createObjectURL(blob);
+
+        const box = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'chat-msg them file-msg';
+        div.innerHTML = `
+          <div>📥 <strong>${escapeHtml(rec.name)}</strong> (${formatBytes(blob.size)})</div>
+          <div style="color:var(--success);font-size:0.8rem;margin:4px 0">✅ Передано через P2P (100%)</div>
+          <a class="file-dl" download="${escapeHtml(rec.name)}" href="${url}">⬇ Завантажити файл</a>
+        `;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        setDeskProgress('Файл отримано! 100%', 100);
+        playSound('chat');
+        toast('Файл успішно отримано!');
+      } catch (e) {
+        toast('Помилка збирання файлу');
+      }
+      incomingFiles.delete(data.id);
+    }
+
+    function handleFileAbort(data) {
+      if (data && data.id) incomingFiles.delete(data.id);
+      setDeskProgress('Передачу скасовано суперником');
+      toast('Передачу файлу перервано');
+    }
+
+    // ==================== QR & CAMERA ====================
+    let html5Qr = null;
+
+    function renderQR(text) {
+      const img = document.getElementById('qr-img');
+      if (img) {
+        img.style.display = 'block';
+        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=' + encodeURIComponent(text);
+      }
+      const canvas = document.getElementById('qr-canvas');
+      if (canvas && typeof QRCode !== 'undefined') {
+        try {
+          QRCode.toCanvas(canvas, text, { width: 180, margin: 1, color: { dark: '#020617', light: '#ffffff' } }, err => {
+            if (!err) { canvas.style.display = 'block'; if (img) img.style.display = 'none'; }
+          });
+        } catch (e) {}
+      }
+    }
+
+    async function startQRScanner() {
+      try { if (typeof Html5Qrcode === 'undefined') await loadModule('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'); } catch { toast('Сканер недоступний. Введіть код вручну.'); return; }
+      if (typeof Html5Qrcode === 'undefined') {
+        toast('Сканер недоступний. Введіть код вручну.');
+        return;
+      }
+      const modal = document.getElementById('scanner-modal');
+      modal.classList.add('show');
+      try {
+        html5Qr = new Html5Qrcode('qr-reader');
+        await html5Qr.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: 240 },
+          (decoded) => {
+            const code = (decoded || '').trim();
+            if (code) {
+              stopQRScanner();
+              document.getElementById('join-code').value = code;
+              toast('QR розпізнано!');
+              document.getElementById('btn-connect').click();
+            }
+          },
+          () => {}
+        );
+      } catch (e) {
+        toast('Камера недоступна або заборонена');
+        stopQRScanner();
+      }
+    }
+
+    async function stopQRScanner() {
+      document.getElementById('scanner-modal').classList.remove('show');
+      if (html5Qr) {
+        try { await html5Qr.stop(); } catch (e) {}
+        try { html5Qr.clear(); } catch (e) {}
+        html5Qr = null;
+      }
+    }
+
+    // ==================== BACKGROUND ANIMATION CANVAS ====================
+    const bgCanvas = document.getElementById('bg-canvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    let radarAngle = 0;
+
+    function resizeBg() {
+      bgCanvas.width = window.innerWidth;
+      bgCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeBg);
+    resizeBg();
+
+    function drawRadarBackground() {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      const cx = bgCanvas.width / 2;
+      const cy = bgCanvas.height / 2;
+      const maxR = Math.max(cx, cy) * 1.2;
+
+      // Draw faint sonar circles
+      bgCtx.lineWidth = 1;
+      for (let r = 80; r < maxR; r += 120) {
+        bgCtx.strokeStyle = 'rgba(0, 240, 255, 0.035)';
+        bgCtx.beginPath();
+        bgCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        bgCtx.stroke();
+      }
+
+      // Rotating radar beam
+      radarAngle += 0.008;
+      const grad = bgCtx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+      grad.addColorStop(0, 'rgba(0, 240, 255, 0.05)');
+      grad.addColorStop(1, 'transparent');
+
+      bgCtx.save();
+      bgCtx.translate(cx, cy);
+      bgCtx.rotate(radarAngle);
+      bgCtx.beginPath();
+      bgCtx.moveTo(0, 0);
+      bgCtx.arc(0, 0, maxR, 0, 0.45);
+      bgCtx.closePath();
+      bgCtx.fillStyle = 'rgba(0, 240, 255, 0.025)';
+      bgCtx.fill();
+      bgCtx.restore();
+
+      requestAnimationFrame(drawRadarBackground);
+    }
+    drawRadarBackground();
+
+    // ==================== EVENT LISTENERS ====================
+    document.getElementById('btn-bot').addEventListener('click', () => {
+      unlockAudio(); playSound('click');
+      destroyPeer();
+      botDifficulty = document.getElementById('difficulty').value;
+      isBotGame = true;
+      isHost = true;
+      startPlacement();
+      toast('Режим ШІ активовано. Розставте кораблі!');
+    });
+
+    document.getElementById('btn-create').addEventListener('click', async () => {
+      isBotGame = false;
+      unlockAudio(); playSound('click');
+      try {
+        isHost = true;
+        showScreen('lobby-create');
+        document.getElementById('room-code').textContent = '—';
+        document.getElementById('qr-img').style.display = 'none';
+        document.getElementById('create-status').textContent = 'Створення кімнати...';
+        document.getElementById('create-status').className = 'status waiting';
+        const id = await initPeer();
+        document.getElementById('room-code').textContent = id;
+        renderQR(id);
+        document.getElementById('create-status').textContent = 'Очікування підключення суперника...';
+      } catch (e) {
+        if (gamePhase === 'lobby-create') { destroyPeer(); toast(e.message || 'Помилка створення кімнати'); showScreen('home'); }
+      }
+    });
+
+    document.getElementById('btn-join').addEventListener('click', () => {
+      isBotGame = false;
+      unlockAudio(); playSound('click');
+      showScreen('lobby-join');
+    });
+
+    document.getElementById('btn-back-join').addEventListener('click', () => {
+      playSound('click'); destroyPeer(); showScreen('home');
+    });
+
+    document.getElementById('btn-cancel-create').addEventListener('click', () => {
+      playSound('click'); destroyPeer(); showScreen('home');
+    });
+
+    document.getElementById('btn-scan-qr').addEventListener('click', () => {
+      unlockAudio(); startQRScanner();
+    });
+
+    document.getElementById('btn-close-scanner').addEventListener('click', () => stopQRScanner());
+
+    async function copyRoomCode() {
+      if (!myId) return;
+      try { await navigator.clipboard.writeText(myId); toast('Код кімнати скопійовано!'); }
+      catch { window.prompt('Скопіюйте код кімнати:',myId); }
+    }
+    document.getElementById('btn-copy').addEventListener('click',copyRoomCode);
+    document.getElementById('room-code').addEventListener('click',copyRoomCode);
+
+    document.getElementById('btn-connect').addEventListener('click', async () => {
+      unlockAudio(); playSound('click');
+      const code = normalizePeerId(document.getElementById('join-code').value);
+      if (!code) { toast('Введіть код кімнати'); return; }
+      if (document.getElementById('btn-connect').disabled) return;
+      document.getElementById('btn-connect').disabled = true;
+      isHost = false;
+      document.getElementById('join-status').innerHTML = '<span class="spinner"></span> Підключення...';
+      document.getElementById('join-status').className = 'status waiting';
+      try {
+        await initPeer();
+        await connectToHost(code);
+      } catch (e) {
+        document.getElementById('join-status').textContent = 'Помилка підключення';
+        toast(e.message || 'Не вдалося підключитися');
+      } finally { document.getElementById('btn-connect').disabled = false; }
+    });
+
+    document.getElementById('btn-disconnect-home').addEventListener('click', () => location.reload());
+
+    document.getElementById('btn-rotate').addEventListener('click', () => {
+      if (isReady) return;
+      unlockAudio(); playSound('click');
+      orientation = orientation === 'H' ? 'V' : 'H';
+      updateOrientLabel();
+      if (pendingPlace) {
+        const { r, c } = pendingPlace;
+        clearPreview();
+        const ship = SHIPS[currentShipIndex];
+        const cells = getShipCells(r, c, ship.size, orientation);
+        if (cells && canPlace(cells)) {
+          cells.forEach(({ r: nr, c: nc }) => {
+            const el = document.querySelector(`#place-grid .cell[data-r="${nr}"][data-c="${nc}"]`);
+            if (el) el.classList.add('ship', 'preview', 'selected-preview');
+          });
+        } else {
+          toast('В цій орієнтації не вміщується');
+          cancelPlace();
+        }
+      }
+    });
+
+    document.getElementById('btn-random').addEventListener('click', () => { unlockAudio(); randomPlace(); });
+    document.getElementById('btn-clear').addEventListener('click', () => { unlockAudio(); playSound('click'); clearBoard(); });
+    document.getElementById('btn-confirm-place').addEventListener('click', () => { unlockAudio(); confirmPlace(); });
+    document.getElementById('btn-cancel-place').addEventListener('click', () => { unlockAudio(); playSound('click'); cancelPlace(); });
+
+    document.getElementById('btn-ready').addEventListener('click', () => {
+      unlockAudio(); playSound('click');
+      if (isReady || placedShips.size < 5) return;
+      if (pendingPlace) cancelPlace();
+      isReady = true;
+      document.getElementById('btn-ready').disabled = true;
+      document.getElementById('place-status').textContent = 'Очікуємо суперника...';
+      document.getElementById('place-status').className = 'status waiting';
+      send({ type: 'ready' });
+      checkBothReady();
+    });
+
+    document.getElementById('btn-pause').addEventListener('click', () => {
+      if (!gameStarted || isPaused) return;
+      if (shotPending) { toast('Дочекайтеся результату пострілу'); return; }
+      clearTimeout(botTimer); botTimer = null;
+      document.getElementById('btn-resume').style.display = '';
+      isPaused = true; send({ type: 'pause' });
+      document.getElementById('pause-text').textContent = 'Ви поставили гру на паузу';
+      document.getElementById('pause-overlay').classList.add('show');
+    });
+
+    document.getElementById('btn-resume').addEventListener('click', () => {
+      if (!isPaused) return;
+      isPaused = false; send({ type: 'resume' });
+      document.getElementById('pause-overlay').classList.remove('show');
+      resumePendingTurn();
+          toast('Гру продовжено');
+    });
+
+    document.getElementById('btn-surrender').addEventListener('click', () => {
+      if (!gameStarted) return;
+      if (confirm('Ви впевнені, що хочете здатися?')) {
+        send({ type: 'surrender' });
+        endGame(false);
+      }
+    });
+
+    document.getElementById('btn-sound').addEventListener('click', () => {
+      unlockAudio(); soundOn = !soundOn;
+      const btn = document.getElementById('btn-sound');
+      btn.textContent = soundOn ? '🔊' : '🔇';
+      btn.classList.toggle('off', !soundOn);
+      if (soundOn) playSound('click');
+    });
+
+    document.getElementById('btn-placement-home').addEventListener('click', () => {
+      if (!isBotGame && conn?.open && !confirm('Вийти з кімнати?')) return;
+      destroyPeer(); isReady = false; gameStarted = false; showScreen('home');
+    });
+    // Chat
+    document.getElementById('chat-toggle').addEventListener('click', () => {
+      playSound('click'); if (chatOpen) closeChat(); else openChat();
+    });
+    document.getElementById('btn-chat-hud').addEventListener('click', () => {
+      playSound('click'); if (chatOpen) closeChat(); else openChat();
+    });
+    document.getElementById('chat-close').addEventListener('click', closeChat);
+    document.getElementById('chat-send').addEventListener('click', sendChat);
+    document.getElementById('chat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendChat();
+    });
+
+    document.getElementById('emoji-bar').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-e]');
+      if (!btn) return;
+      document.getElementById('chat-input').value += btn.dataset.e;
+      document.getElementById('chat-input').focus();
+    });
+
+    // Attachments
+    document.getElementById('desk-send-btn').addEventListener('click', () => {
+      unlockAudio(); sendDeskFile();
+    });
+    document.getElementById('desk-cancel-btn').addEventListener('click', cancelDeskSend);
+    document.getElementById('desk-hide-btn').addEventListener('click', lockDesk);
+
+    document.getElementById('btn-rematch').addEventListener('click', () => {
+      playSound('click'); send({ type: 'rematch' }); resetForRematch();
+    });
+    document.getElementById('btn-restart').addEventListener('click', () => location.reload());
+
+    let installPrompt = null;
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault(); installPrompt = event;
+      document.getElementById('btn-install').style.display = '';
+    });
+    document.getElementById('btn-install').addEventListener('click', async () => {
+      if (!installPrompt) return;
+      await installPrompt.prompt(); installPrompt = null;
+      document.getElementById('btn-install').style.display = 'none';
+    });
+    window.addEventListener('appinstalled', () => { document.getElementById('btn-install').style.display = 'none'; });
+    document.getElementById('join-code').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('btn-connect').click(); });
+    document.querySelectorAll('.icon-btn').forEach(b => b.setAttribute('aria-label', b.title || b.textContent.trim()));
+    document.getElementById('game-msg').setAttribute('aria-live','polite');
+    document.getElementById('toast').setAttribute('role','status');
+    // Service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
